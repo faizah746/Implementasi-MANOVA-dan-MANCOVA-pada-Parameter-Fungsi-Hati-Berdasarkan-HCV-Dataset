@@ -1,0 +1,128 @@
+---
+title: "Modul 2
+Implementasi Multivariate Analysis of Variance (MANOVA) dan Multivariate Analysis of Covariance (MANCOVA) pada Parameter Fungsi Hati Berdasarkan HCV Dataset."
+author: "Ananta Putri Clara (24031554031), Ayu Anggraini (24031554054), Faizah Khasifa Salsabila (24031554056)"
+output: html_document
+---
+
+## LOAD LIBRARY
+```{r}
+install.packages(c("tidyverse", "car"))
+```
+Pada tahap awal, dilakukan instalasi package tidyverse dan car agar seluruh kebutuhan analisis, mulai dari pengolahan data hingga pengujian statistik, dapat terpenuhi.
+```{r}
+library(tidyverse)
+```
+Setelah itu, tidyverse dipanggil ke dalam R sehingga fungsi-fungsi untuk manipulasi data dan visualisasi dapat langsung digunakan.
+```{r}
+library(car)
+```
+Selanjutnya, package car juga diaktifkan untuk mendukung pengujian statistik, khususnya dalam uji asumsi seperti homogenitas varians.
+
+## LOAD DATA
+```{r}
+data <- read.csv("hcvdata.csv")
+```
+Berikutnya, dataset dibaca dari file hcvdata.csv dan dimasukkan ke dalam variabel data untuk diproses lebih lanjut.
+```{r}
+data <- data[, -1]
+```
+Setelah data dimuat, kolom pertama dihapus karena umumnya hanya berisi indeks yang tidak diperlukan dalam analisis.
+```{r}
+head(data)
+```
+Untuk memastikan data telah terbaca dengan benar, ditampilkan beberapa baris awal sebagai gambaran isi dataset.
+```{r}
+str(data)
+``` 
+Kemudian, struktur data ditinjau untuk mengetahui tipe setiap variabel serta bentuk keseluruhan dataset.
+
+## PREPROCESSING
+```{r}
+data$Sex <- as.factor(data$Sex)
+data$Category <- as.factor(data$Category)
+```
+Selanjutnya, variabel Sex diubah menjadi tipe faktor agar sesuai sebagai data kategorikal dalam analisis lalu pada variabel Category sehingga dapat diperlakukan sebagai variabel kategori.
+```{r}
+colSums(is.na(data))
+```
+Setelah itu, dilakukan pengecekan terhadap missing value untuk melihat apakah terdapat data yang kosong pada setiap kolom.
+```{r}
+data_bersih <- na.omit(data)
+```
+Jika ditemukan nilai yang hilang, data tersebut kemudian dibersihkan dengan menghapus baris yang mengandung missing value sehingga diperoleh dataset yang siap dianalisis.
+
+## STATISTIK DESKRIPTIF
+```{r}
+summary(data_bersih[, c("Age","ALB","ALP","ALT","AST","BIL",
+                        "CHE","CHOL","CREA","GGT","PROT")])
+
+table(data_bersih$Sex)
+table(data_bersih$Category)
+```
+Selanjutnya, ditampilkan ringkasan statistik dari variabel numerik guna memperoleh gambaran awal mengenai distribusi dan karakteristik data, kemudian distribusi data berdasarkan jenis kelamin ditinjau untuk mengetahui jumlah masing-masing kategori, lalu hal yang sama juga dilakukan pada variabel kategori pasien untuk melihat sebaran data pada tiap kelompok.
+
+## VISUALISASI
+```{r}
+data_bersih %>%
+  select(ALB, ALP, ALT, AST, BIL, CHE, CHOL, CREA, GGT, PROT) %>%
+  pivot_longer(cols = everything(), names_to = "Variabel", values_to = "Nilai") %>%
+  ggplot(aes(x = Nilai)) +
+  geom_histogram(bins = 20, fill = "steelblue", color = "black") +
+  facet_wrap(~Variabel, scales = "free") +
+  labs(title = "Distribusi Parameter Fungsi Hati")
+```
+Berikutnya, dilakukan visualisasi distribusi data dengan mengubah dataset ke format panjang terlebih dahulu, kemudian ditampilkan dalam bentuk histogram untuk masing-masing parameter fungsi hati sehingga pola distribusi dapat diamati dengan lebih jelas.
+```{r}
+data_bersih %>%
+  select(Category, ALB, ALP, ALT, AST, BIL, CHE, CHOL, CREA, GGT, PROT) %>%
+  pivot_longer(cols = -Category, names_to = "Variabel", values_to = "Nilai") %>%
+  ggplot(aes(x = Category, y = Nilai, fill = Category)) +
+  geom_boxplot() +
+  facet_wrap(~Variabel, scales = "free") +
+  labs(title = "Boxplot Parameter Fungsi Hati berdasarkan Kategori Pasien")
+```
+Selanjutnya, dibuat boxplot untuk membandingkan distribusi setiap parameter fungsi hati berdasarkan kategori pasien sehingga perbedaan antar kelompok dapat terlihat dengan lebih jelas.
+
+## UJI ASUMSI
+```{r}
+shapiro.test(data_bersih$ALB)
+shapiro.test(data_bersih$AST)
+```
+Setelah visualisasi, dilakukan pengujian normalitas pada variabel ALB untuk melihat apakah data mengikuti distribusi normal, dan kemudian pengujian yang sama juga dilakukan pada variabel AST sebagai representasi dari variabel lainnya.
+```{r}
+leveneTest(ALB ~ Category, data = data_bersih)
+leveneTest(AST ~ Category, data = data_bersih)
+```
+Kemudian, diuji apakah varians data pada variabel ALB seragam antar kategori sebagai bagian dari uji homogenitas, langkah ini diulang pada variabel AST untuk memastikan asumsi homogenitas terpenuhi.
+
+## MANOVA
+```{r}
+manova_model <- manova(
+  cbind(ALB, ALP, ALT, AST, BIL, CHE, CHOL, CREA, GGT, PROT) ~ Category + Sex,
+  data = data_bersih
+)
+```
+Selanjutnya, dibangun model MANOVA dengan beberapa parameter fungsi hati sebagai variabel dependen dan kategori serta jenis kelamin sebagai variabel independen.
+```{r}
+summary(manova_model, test = "Pillai")
+summary(manova_model, test = "Wilks")
+summary.aov(manova_model)
+```
+Hasil analisis kemudian ditinjau menggunakan statistik Pillai Trace untuk melihat pengaruh variabel independen secara simultan, selain itu, digunakan juga Wilks Lambda sebagai pembanding dalam menguji signifikansi model, untuk memperdalam analisis, dilihat pula hasil uji pada masing-masing variabel secara terpisah.
+
+## MANCOVA
+```{r}
+mancova_model <- manova(
+  cbind(ALB, ALP, ALT, AST, BIL, CHE, CHOL, CREA, GGT, PROT) ~ Category + Sex + Age,
+  data = data_bersih
+)
+```
+Terakhir, model dikembangkan menjadi MANCOVA dengan menambahkan variabel Age sebagai kovariat agar pengaruh usia dapat dikontrol dalam analisis.
+```{r}
+summary(mancova_model, test = "Pillai")
+summary(mancova_model, test = "Wilks")
+summary.aov(mancova_model)
+```
+Hasilnya kemudian dianalisis kembali menggunakan Pillai Trace untuk melihat pengaruh setelah mempertimbangkan kovariat, selanjutnya digunakan Wilks Lambda untuk memperkuat hasil pengujian multivariat, sebagai angkah akhir, ditinjau kembali pengaruh masing-masing variabel dependen setelah model mencakup kovariat.
+
