@@ -1,1 +1,0 @@
-# Implementasi-MANOVA-dan-MANCOVA-pada-Parameter-Fungsi-Hati-Berdasarkan-HCV-Dataset
